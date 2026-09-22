@@ -264,6 +264,10 @@ type SessionTreeProps = Pick<
   onSessionRename: (sessionId: SessionNode['id'], currentTitle: string) => void
   /** Archive a session (row menu action; the row disappears on the state echo). */
   onSessionArchive: (sessionId: SessionNode['id']) => void
+  /** Toggle pin state on a session. */
+  onSessionPin: (sessionId: SessionNode['id']) => void
+  /** Currently pinned session ids. */
+  pinnedSessionIds: ReadonlySet<SessionNode['id']>
   /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
   orderBy: SessionOrderBy
   /** One Session chosen from search that must be exposed and scrolled into view. */
@@ -276,7 +280,7 @@ type SessionTreeProps = Pick<
 function SessionTree({
   useSessions, useSessionPendingInteraction, startSession, open, forkSession, workspaces, archivedSessionIds,
   workspaceReady, usePanelInfo,
-  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
+  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onSessionPin, pinnedSessionIds,
   insertWorkspaceBefore, insertSessionBefore, orderBy,
   groupExpansion, setGroupExpanded,
   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t,
@@ -587,6 +591,8 @@ function SessionTree({
                     onOpen={open}
                     onRename={onSessionRename}
                     onFork={forkSession}
+                    onPin={onSessionPin}
+                    pinned={pinnedSessionIds.has(node.id)}
                     onArchive={onSessionArchive}
                     onReveal={node.id === revealSessionId && group.key === revealGroup
                       ? () => { onSessionRevealed(node.id) }
@@ -619,7 +625,7 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  useSessions, useSessionPendingInteraction, open, forkSession, onSessionRename, onSessionArchive,
+  useSessions, useSessionPendingInteraction, open, forkSession, onSessionRename, onSessionArchive, onSessionPin, pinnedSessionIds,
   archivedSessionIds, usePanelInfo,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder,
   revealSessionId, onSessionRevealed, t,
@@ -631,6 +637,8 @@ function FlatList({
   | 'forkSession'
   | 'onSessionRename'
   | 'onSessionArchive'
+  | 'onSessionPin'
+  | 'pinnedSessionIds'
   | 'archivedSessionIds'
   | 'usePanelInfo'
   | 'orderBy'
@@ -714,6 +722,8 @@ function FlatList({
               onOpen={open}
               onRename={onSessionRename}
               onFork={forkSession}
+              onPin={onSessionPin}
+              pinned={pinnedSessionIds.has(node.id)}
               onArchive={onSessionArchive}
               onReveal={node.id === revealSessionId
                 ? () => { onSessionRevealed(node.id) }
@@ -1085,6 +1095,16 @@ export function WorkspaceBrowser({
     })
   }
 
+  // Pin state is local UI preference: toggled by the row menu, never persisted.
+  const [pinnedSessionIds, setPinnedSessionIds] = useState<ReadonlySet<SessionNode['id']>>(() => new Set())
+  const onSessionPin = (sessionId: SessionNode['id']): void => {
+    setPinnedSessionIds((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(sessionId)) next.add(sessionId)
+      return next
+    })
+  }
+
   // Delete dialog is separate from the row so a successful removal can
   // unmount that row without tearing down the in-flight confirmation state.
   const [deleteTarget, setDeleteTarget] = useState<{ workspaceId: WorkspaceId; title: string } | null>(null)
@@ -1276,6 +1296,8 @@ export function WorkspaceBrowser({
                 useSessions={useSessions} useSessionPendingInteraction={useSessionPendingInteraction}
                 open={open} forkSession={forkSession}
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
+                onSessionPin={onSessionPin}
+                pinnedSessionIds={pinnedSessionIds}
                 archivedSessionIds={archivedSessionIds}
                 orderBy={orderBy}
                 sessionOrderByAccount={sessionOrderByAccount}
@@ -1294,6 +1316,8 @@ export function WorkspaceBrowser({
                 useSessionPendingInteraction={useSessionPendingInteraction}
                 onSessionRename={onSessionRename}
                 onSessionArchive={onSessionArchive}
+                onSessionPin={onSessionPin}
+                pinnedSessionIds={pinnedSessionIds}
                 forkSession={forkSession}
                 workspaces={workspaces}
                 workspaceReady={workspacePhase === 'ready' && workspaceStreamState !== 'loading'}

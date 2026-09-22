@@ -938,6 +938,17 @@ export const IconArchiveOutline20 = ({ size = 20, className }: IconProps) => (
   </svg>
 )
 
+/** ic_ds_pin_outline_16: map-pin / pushpin for pin-to-top */
+export const IconPinOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M8 1.5C12 1.5 13.5 4.5 13.5 8C13.5 11 11 13 8 14.5C5 13 2.5 11 2.5 8C2.5 4.5 4 1.5 8 1.5Z"
+      stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"
+    />
+    <circle cx="8" cy="7.5" r="2" fill="currentColor" />
+  </svg>
+)
+
 /**
  * Plan row glyph of the composer menu (#3567): a document with three ruled
  * lines and a pencil over its corner. Drawn on a 14 grid whose content spans

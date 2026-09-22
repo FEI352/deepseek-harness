@@ -10,7 +10,7 @@ import clsx from 'clsx'
 import {
   HoverCard, IconAlarmClockOutline16, IconArchiveOutline20, IconBranchOutline16,
   IconEditOutline16, IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16,
-  IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
+  IconPinOutline16, IconPlusOutline16, IconTrashOutline16, IconTriangleRightFill14, Menu, relativeTime,
   StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -377,7 +377,7 @@ export function SearchResultItem({ result, currentId, onOpen, t }: {
  * @returns the session row.
  */
 export function SessionNodeItem({
-  node, currentId, now, onOpen, onRename, onFork, onArchive, onReveal, drag, flat = false, t,
+  node, currentId, now, onOpen, onRename, onFork, onPin, onArchive, onReveal, drag, flat = false, pinned = false, t,
 }: {
   node: SessionNode
   currentId: string | undefined
@@ -387,6 +387,8 @@ export function SessionNodeItem({
   onRename: (id: SessionNode['id'], currentTitle: string) => void
   /** Fork a session at its last completed turn (row menu action). */
   onFork: (id: SessionNode['id']) => void
+  /** Toggle pin state on this session (row menu action). */
+  onPin: (id: SessionNode['id']) => void
   /** Archive this session (row menu action; commits without a dialog). */
   onArchive: (id: SessionNode['id']) => void
   /** Scroll this row into view after search navigation, then acknowledge it. */
@@ -395,6 +397,8 @@ export function SessionNodeItem({
   drag?: RowDragProps | undefined
   /** The row is rendered without a parent Workspace header. */
   flat?: boolean | undefined
+  /** Whether this session is pinned to the top. */
+  pinned?: boolean | undefined
   t: RowTranslate
 }) {
   const row = node
@@ -416,6 +420,7 @@ export function SessionNodeItem({
   const sessionMenuItems = [
     { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
     { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
+    { id: 'pin', label: t(pinned ? 'menu.unpin' : 'menu.pin'), icon: <IconPinOutline16 /> },
     // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
     { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
   ]
@@ -481,6 +486,7 @@ export function SessionNodeItem({
               setMenuOpen(false)
               if (id === 'rename') onRename(node.id, row.title)
               if (id === 'fork') onFork(node.id)
+              if (id === 'pin') onPin(node.id)
               if (id === 'archive') onArchive(node.id)
             }}
             portal
