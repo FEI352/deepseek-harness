@@ -63,10 +63,29 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
   const [setupOpen, setSetupOpen] = useState(false)
   useEffect(() => { if (usable) setSetupOpen(false) }, [usable])
   const current = useRef<ActiveRecording>(), generation = useRef(0)
+  const autoSubmitRef = useRef(false)
+  const isSubmittingRef = useRef(false)
   const expanded = phase !== 'idle'
   useLayoutEffect(() => { onActiveChange(expanded); return () => { onActiveChange(false) } }, [expanded, onActiveChange])
 
+  useEffect(() => {
+    const onVoiceFinish = (): void => {
+      const active = current.current
+      if (active && active.phase === 'recording') {
+        autoSubmitRef.current = true
+        void finish({ autoSubmit: true })
+      } else if (active && active.phase === 'transcribing') {
+        autoSubmitRef.current = true
+      } else {
+        autoSubmitRef.current = false
+      }
+    }
+    window.addEventListener('dsh:voice-finish', onVoiceFinish)
+    return () => { window.removeEventListener('dsh:voice-finish', onVoiceFinish) }
+  }, [])
+
   const cancel = (): void => {
+    autoSubmitRef.current = false
     generation.current++
     const active = current.current
     current.current = undefined
@@ -97,7 +116,10 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
   const feedback = (text: string): void => { setMessage(text); setPhase('feedback') }
   const failureText = (failure: unknown): string => failure instanceof RecordingError ? t(failure.kind)
     : t('failed', { message: failure instanceof Error ? failure.message : String(failure) })
-  const finish = async (): Promise<void> => {
+  const finish = async (options?: { autoSubmit?: boolean }): Promise<void> => {
+    if (options?.autoSubmit) {
+      autoSubmitRef.current = true
+    }
     const active = current.current
     if (!active || active.phase !== 'recording') return
     active.phase = 'transcribing'
@@ -106,14 +128,51 @@ export function VoiceInput({ sessionId, inputActions, locked, onActiveChange,
     try {
       const audio = await active.capture.stop(active.maxDurationSeconds)
       if (run !== generation.current) return
-      if (audio.byteLength > active.maxAudioBytes) { feedback(t('tooLarge')); return }
+      if (audio.byteLength > active.maxAudioBytes) {
+        autoSubmitRef.current = false
+        feedback(t('tooLarge'))
+        return
+      }
       const result = await transcribe({ audioBase64: audioBase64(audio), ...active.selection }, active.abort.signal)
       if (run !== generation.current) return
-      if (!result.ok) { feedback(t('failed', { message: result.error.message })); return }
-      if (result.value.text === '') { feedback(t('empty')); return }
-      if (!inputActions.insertText(result.value.text, active.span)) { setPending(result.value.text); feedback(t('conflict')); return }
+      if (!result.ok) {
+        autoSubmitRef.current = false
+        feedback(t('failed', { message: result.error.message }))
+        return
+      }
+      const cleanText = result.value.text?.trim() ?? ''
+      if (cleanText === '') {
+        autoSubmitRef.current = false
+        feedback(t('empty'))
+        return
+      }
+      const freshSpan = typeof inputActions.captureInsertion === 'function' ? inputActions.captureInsertion() : active.span
+      if (!inputActions.insertText(cleanText, freshSpan)) {
+        if (!inputActions.insertText(cleanText, active.span)) {
+          autoSubmitRef.current = false
+          setPending(cleanText)
+          feedback(t('conflict'))
+          return
+        }
+      }
       setPhase('idle')
+      if (autoSubmitRef.current) {
+        autoSubmitRef.current = false
+        if (!isSubmittingRef.current) {
+          isSubmittingRef.current = true
+          setTimeout(() => {
+            try {
+              inputActions.submit()
+            } catch (e) {
+              console.error('[voice-input] auto-submit error:', e)
+            } finally {
+              setTimeout(() => { isSubmittingRef.current = false }, 300)
+            }
+          }, 30)
+        }
+      }
     } catch (failure) {
+      autoSubmitRef.current = false
       await disposeRecording(active.capture)
       if (run === generation.current) feedback(failureText(failure))
     } finally { if (run === generation.current) current.current = undefined }

@@ -380,3 +380,24 @@ it.each(['later', 'escape', 'ready', 'session'])('dismisses unavailable recognit
     expect(screen.getByRole('dialog')).toBeTruthy()
   }
 })
+
+it('Scenario A & C: dispatches dsh:voice-finish on Enter, settles recording, auto-submits, and debounces rapid submits', async () => {
+  const b = fixture()
+  await start()
+  fireEvent(window, new CustomEvent('dsh:voice-finish', { detail: { autoSubmit: true } }))
+  fireEvent(window, new CustomEvent('dsh:voice-finish', { detail: { autoSubmit: true } }))
+  fireEvent(window, new CustomEvent('dsh:voice-finish', { detail: { autoSubmit: true } }))
+  await waitFor(() => { expect(b.inputActions.insertText).toHaveBeenCalledWith(transcript.text, { start: 3, end: 3, draftRev: 1 }) })
+  await waitFor(() => { expect(b.inputActions.submit).toHaveBeenCalledTimes(1) })
+})
+
+it('Scenario D: handles empty or whitespace-only transcript without auto-submitting empty message', async () => {
+  const b = fixture()
+  b.transcribe.mockResolvedValueOnce({ ok: true, value: { text: '   \n  ', audioSeconds: 1, inferenceSeconds: 0.1 } })
+  await start()
+  fireEvent(window, new CustomEvent('dsh:voice-finish', { detail: { autoSubmit: true } }))
+  await screen.findByRole('status')
+  expect(screen.getByRole('status').textContent).toBe(zh.empty)
+  expect(b.inputActions.insertText).not.toHaveBeenCalled()
+  expect(b.inputActions.submit).not.toHaveBeenCalled()
+})

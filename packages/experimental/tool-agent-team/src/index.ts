@@ -19,12 +19,22 @@ export interface Config {
   readonly freshProvider?: string
   /** Continuable-subagent provider used for completed-prefix fork teammates. */
   readonly forkProvider?: string
+  /** Default LLM provider for spawned teammates when not specified. */
+  readonly defaultProvider?: string
+  /** Default LLM model for spawned teammates when not specified. */
+  readonly defaultModel?: string
+  /** Default reasoning effort for spawned teammates when not specified. */
+  readonly defaultReasoningEffort?: string
 }
 
 /** Loader schema for the opt-in Team tool plugin. */
+// danger-approved: schemastery z.string() without .optional() call
 export const Config: z<Config> = z.object({
   freshProvider: z.string().default('spawn'),
   forkProvider: z.string().default('fork'),
+  defaultProvider: z.string(),
+  defaultModel: z.string(),
+  defaultReasoningEffort: z.string(),
 })
 
 /** Model-facing collaboration guidance shared by Lead and teammates. */
@@ -184,11 +194,27 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
           enum: ['fresh', 'fork'],
           description: 'fresh starts without Lead history; fork inherits completed Lead turns. Defaults to fresh.',
         },
+        provider: {
+          type: 'string',
+          description: 'Optional LLM provider ID (e.g. "opencode-go", "agi-manager", "openrouter", "antigravity", etc.). If omitted, falls back to default or inherits.',
+        },
+        model: {
+          type: 'string',
+          description: 'Optional LLM model ID (e.g. "deepseek-v4.1-flash", "claude-opus-4-6", etc.). If omitted, falls back to default or inherits.',
+        },
+        reasoning_effort: {
+          type: 'string',
+          enum: ['low', 'medium', 'high', 'max'],
+          description: 'Optional reasoning effort level.',
+        },
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),
       async execute(args, exec) {
         const agent = callingAgent(exec.agent, 'spawn_teammate')
         const context = args.context ?? 'fresh'
+        const agentProvider = args.provider ?? config.defaultProvider
+        const model = args.model ?? config.defaultModel
+        const reasoningEffort = args.reasoning_effort ?? config.defaultReasoningEffort
         const result = await ctx.agentTeams.spawnTeammate(agent, {
           name: args.name,
           description: args.description,
@@ -207,6 +233,9 @@ To message another teammate, use send_message({ target: "<teammate name>", messa
           context,
           provider: context === 'fork' ? config.forkProvider : config.freshProvider,
           signal: exec.signal,
+          agentProvider,
+          model,
+          reasoningEffort,
         })
         return { member: modelMember(result.member) }
       },

@@ -139,7 +139,8 @@ export class TeamRoster {
     }]
     for (const member of state.members) {
       const live = this.ctx.agents.get(member.id)
-      const model = live?.options.model ?? root.options.model
+      const model = live?.options.model ?? member.model ?? root.options.model
+      const provider = live?.options.provider ?? member.agentProvider ?? member.provider
       result.push({
         id: member.id,
         name: member.name,
@@ -150,7 +151,7 @@ export class TeamRoster {
             ? 'provisioning'
             : availability(live),
         description: member.description,
-        provider: member.provider,
+        provider,
         context: member.context,
         ...model === undefined ? {} : { model },
         diagnostics: member.error === undefined ? [] : [member.error],
@@ -264,6 +265,8 @@ export class TeamRoster {
       provider: requiredText(request.provider, 'provider', 200),
       context: request.context,
       phase: 'provisioning',
+      ...request.model !== undefined ? { model: request.model } : {},
+      ...request.agentProvider !== undefined ? { agentProvider: request.agentProvider } : {},
     }
 
     await this.journal.transact(root.id, async () => {
@@ -279,6 +282,11 @@ export class TeamRoster {
 
     let started: ContinuableStart
     try {
+      const agentOptions = {
+        ...request.agentProvider !== undefined ? { provider: request.agentProvider } : {},
+        ...request.model !== undefined ? { model: request.model } : {},
+        ...request.reasoningEffort !== undefined ? { reasoningEffort: request.reasoningEffort } : {},
+      }
       started = await this.ctx.subagents.startContinuable({
         childId,
         provider: request.provider,
@@ -286,6 +294,7 @@ export class TeamRoster {
         request: {
           prompt: request.prompt,
           parent: root,
+          agentOptions: Object.keys(agentOptions).length > 0 ? agentOptions : undefined,
         },
         signal,
       })

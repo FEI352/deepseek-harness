@@ -52,6 +52,8 @@ export interface TeamMemberSnapshot {
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
   readonly error?: string
+  readonly model?: string
+  readonly agentProvider?: string
 }
 
 /** Current runtime-enriched roster row. */
@@ -170,6 +172,9 @@ export interface SpawnTeammateRequest {
   readonly context: 'fresh' | 'fork'
   readonly provider: string
   readonly signal: AbortSignal
+  readonly agentProvider?: string
+  readonly model?: string
+  readonly reasoningEffort?: string
 }
 
 /** Result after one teammate reaches a durable active or failed edge. */
