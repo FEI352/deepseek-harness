@@ -171,7 +171,7 @@ function callingAgent(agent: Agent | undefined, toolName: string): Agent {
 }
 
 /** Register the complete Team tool set in one exact Agent scope. */
-function install(agent: Agent, ctx: Context, config: Required<Config>): () => void {
+function install(agent: Agent, ctx: Context, config: Config): () => void {
   const scoped = agent.ctx
   const disposers: Array<() => unknown> = []
   const register = (disposer: () => unknown): void => { disposers.push(disposer) }
@@ -231,11 +231,11 @@ To message another teammate, use send_message({ target: "<teammate name>", messa
             { type: 'text', text: args.prompt },
           ],
           context,
-          provider: context === 'fork' ? config.forkProvider : config.freshProvider,
+          provider: context === 'fork' ? (config.forkProvider ?? 'fork') : (config.freshProvider ?? 'spawn'),
           signal: exec.signal,
-          agentProvider,
-          model,
-          reasoningEffort,
+          ...agentProvider !== undefined ? { agentProvider } : {},
+          ...model !== undefined ? { model } : {},
+          ...reasoningEffort !== undefined ? { reasoningEffort } : {},
         })
         return { member: modelMember(result.member) }
       },
@@ -429,9 +429,12 @@ To message another teammate, use send_message({ target: "<teammate name>", messa
 
 /** Install Team tools in every live or subsequently published Team member scope. */
 export function apply(ctx: Context, config: Config = {}): void {
-  const resolved: Required<Config> = {
+  const resolved: Config = {
     freshProvider: config.freshProvider ?? 'spawn',
     forkProvider: config.forkProvider ?? 'fork',
+    ...config.defaultProvider !== undefined ? { defaultProvider: config.defaultProvider } : {},
+    ...config.defaultModel !== undefined ? { defaultModel: config.defaultModel } : {},
+    ...config.defaultReasoningEffort !== undefined ? { defaultReasoningEffort: config.defaultReasoningEffort } : {},
   }
   const installed = new Map<Agent, () => void>()
   const maybeInstall = (agent: Agent): void => {

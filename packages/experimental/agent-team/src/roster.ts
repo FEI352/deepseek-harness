@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { foldSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
@@ -294,7 +294,7 @@ export class TeamRoster {
         request: {
           prompt: request.prompt,
           parent: root,
-          agentOptions: Object.keys(agentOptions).length > 0 ? agentOptions : undefined,
+          ...Object.keys(agentOptions).length > 0 ? { agentOptions: agentOptions as AgentOptions } : {},
         },
         signal,
       })
